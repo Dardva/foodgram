@@ -21,13 +21,13 @@ services:
       - media:/app/media
   frontend:
     container_name: foodgram-front
-    image: dardva/kittygram_frontend
+    image: dardva/foodgram_frontend
     command: cp -r /app/build/. /frontend_static/
     volumes:
       - static:/frontend_static
   nginx:
     container_name: foodgram-proxy
-    image: dardva/kittygram_nginx
+    image: dardva/foodgram_gateway
     env_file: .env
     ports:
       - "8080:80"
