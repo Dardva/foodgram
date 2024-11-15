@@ -10,12 +10,12 @@ services:
 
   db:
     image: postgres:13
-    env_file: ../.env
+    env_file: .env
     volumes:
       - pg_data:/var/lib/postgresql/data
   backend:
     image: dardva/foodgram_backend
-    env_file: ../.env
+    env_file: .env
     volumes:
       - static:/backend_static
       - media:/app/media
@@ -28,7 +28,7 @@ services:
   nginx:
     container_name: foodgram-proxy
     image: dardva/kittygram_nginx
-    env_file: ../.env
+    env_file: .env
     ports:
       - "8080:80"
     volumes:
