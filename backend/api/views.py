@@ -4,13 +4,13 @@ from urllib.parse import unquote
 from django.contrib.auth import get_user_model
 from django.db.models import Case, When, IntegerField
 from django.http import HttpResponse
+from django_filters.rest_framework.backends import DjangoFilterBackend
 from djoser.views import UserViewSet
 from reportlab.pdfbase import pdfmetrics
 from reportlab.pdfbase.ttfonts import TTFont
 from reportlab.pdfgen import canvas
 from rest_framework import filters, status, permissions, viewsets
 from rest_framework.decorators import action
-from rest_framework.filters import DjangoFilterBackend
 from rest_framework.request import Request
 from rest_framework.response import Response
 from rest_framework_simplejwt.token_blacklist.models import (
