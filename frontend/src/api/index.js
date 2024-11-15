@@ -39,7 +39,15 @@ class Api {
         email,
         password,
       }),
-    }).then(this.checkResponse);
+    }).then(this.checkResponse)
+      .then((data) => {
+        if (data.auth_token) {
+          localStorage.setItem('token', data.auth_token);
+        } else {
+          throw new Error('Authentication token not provided');
+        }
+        return data;
+      });
   }
 
   signout() {
@@ -137,15 +145,13 @@ class Api {
     const authorization = token ? { authorization: `Token ${token}` } : {};
     const tagsString = tags
       ? tags
-          .filter((tag) => tag.value)
-          .map((tag) => `&tags=${tag.slug}`)
-          .join("")
+        .filter((tag) => tag.value)
+        .map((tag) => `&tags=${tag.slug}`)
+        .join("")
       : "";
     return fetch(
-      `/api/recipes/?page=${page}&limit=${limit}${
-        author ? `&author=${author}` : ""
-      }${is_favorited ? `&is_favorited=${is_favorited}` : ""}${
-        is_in_shopping_cart ? `&is_in_shopping_cart=${is_in_shopping_cart}` : ""
+      `/api/recipes/?page=${page}&limit=${limit}${author ? `&author=${author}` : ""
+      }${is_favorited ? `&is_favorited=${is_favorited}` : ""}${is_in_shopping_cart ? `&is_in_shopping_cart=${is_in_shopping_cart}` : ""
       }${tagsString}`,
       {
         method: "GET",

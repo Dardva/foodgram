@@ -14,24 +14,23 @@ services:
     volumes:
       - pg_data:/var/lib/postgresql/data
   backend:
-    build: ../backend/
+    image: dardva/foodgram_backend
     env_file: ../.env
     volumes:
       - static:/backend_static
       - media:/app/media
   frontend:
     container_name: foodgram-front
-    build: ../frontend/
+    image: dardva/kittygram_frontend
     command: cp -r /app/build/. /frontend_static/
     volumes:
       - static:/frontend_static
   nginx:
     container_name: foodgram-proxy
-    build: ../nginx/
+    image: dardva/kittygram_nginx
     env_file: ../.env
     ports:
       - "8080:80"
     volumes:
       - static:/staticfiles/
       - media:/media
-      - ../docs/:/usr/share/nginx/html/api/docs/
