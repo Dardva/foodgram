@@ -2,7 +2,7 @@ import base64
 
 from django.contrib.auth import authenticate, get_user_model
 from django.core.files.base import ContentFile
-from rest_framework import serializers
+from rest_framework import serializers, status
 from rest_framework.response import Response
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 
