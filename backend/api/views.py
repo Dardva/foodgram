@@ -29,7 +29,6 @@ from api.serializers import (
     IngredientSerializer,
     MyTokenObtainPairSerializer,
     RecipeGetSerializer,
-    RecipeGetSerializer,
     RecipeSerializer,
     SubscribeSerializer,
     TagSerializer,
