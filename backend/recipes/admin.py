@@ -55,7 +55,7 @@ class RecipeAdmin(admin.ModelAdmin):
     search_fields = ('author', 'name')
     list_filter = ('tags',)
     readonly_fields = ('favorite_count',)
-    inlines = [RecipeIngredientInline,]
+    inlines = [RecipeIngredientInline, ]
 
     def favorite_count(self, obj):
         count = Favorite.objects.filter(recipe=obj).count()
