@@ -282,12 +282,10 @@ class DownloadShoppingCart(APIView):
                         'amount': ri.amount,
                         'measurement_unit': ingredient.measurement_unit
                     }
-        print(ingredients)
-        pdfmetrics.registerFont(TTFont('Arial', 'Arial.ttf'))
-
+        pdfmetrics.registerFont(TTFont('DejaVuSans', 'DejaVuSans.ttf'))
         p = canvas.Canvas(buffer)
         position = POSITION
-        p.setFont('Arial', FONT_SIZE)
+        p.setFont('DejaVuSans', FONT_SIZE)
         p.drawString(POSITION[0], POSITION[1], 'Список покупок:')
         position = (POSITION[0], POSITION[1] - FONT_SIZE)
 

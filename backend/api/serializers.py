@@ -218,7 +218,10 @@ class RecipeSerializer(serializers.ModelSerializer):
         tags = validated_data.pop('tags')
 
         ingredients = validated_data.pop('recipe_ingredients')
+
         recipe = super().update(instance, validated_data)
+        recipe.recipe_ingredients.all().delete()
+        recipe.tags.clear()
         for tag in tags:
             try:
                 tag_instance = Tag.objects.get(id=tag)
@@ -227,10 +230,16 @@ class RecipeSerializer(serializers.ModelSerializer):
                 raise serializers.ValidationError(
                     f'Tag with ID {tag} does not exist.')
         for ingredient in ingredients:
-            RecipeIngredient.objects.update_or_create(
+            try:
+                ingredient['id'] = Ingredient.objects.get(
+                    id=ingredient['id'].id)
+            except Ingredient.DoesNotExist:
+                raise serializers.ValidationError(
+                    f'Ingredient with ID {ingredient["id"]} does not exist.')
+            RecipeIngredient.objects.create(
                 recipe=recipe,
                 ingredient_id=ingredient['id'].id,
-                defaults={'amount': ingredient['amount']})
+                amount=ingredient['amount'])
         return instance
 
 
