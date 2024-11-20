@@ -288,6 +288,7 @@ class IngredientSerializer(serializers.ModelSerializer):
 class SubscribeSerializer(UserCustomSerializer):
     """Сериализатор подписок."""
     recipes = serializers.SerializerMethodField()
+    is_subscribed = serializers.SerializerMethodField()
 
     class Meta:
         model = User
@@ -301,6 +302,9 @@ class SubscribeSerializer(UserCustomSerializer):
             'recipes',
             'avatar',
         )
+
+    def get_is_subscribed(self, obj):
+        return True
 
     def get_recipes(self, obj):
         recipes_limit = self.context.get('recipes_limit')
