@@ -170,7 +170,7 @@ class IngredientViewSet(viewsets.ReadOnlyModelViewSet):
 
 class RecipeViewSet(viewsets.ModelViewSet):
     queryset = Recipe.objects.all().select_related(
-        'autor').prefetch_related('ingredients', 'tags')
+        'author').prefetch_related('ingredients', 'tags')
     permission_classes = (AutorOrReadOnly,)
     pagination_class = CustomPageNumberPagination
     search_fields = ['name', 'text']
