@@ -84,7 +84,7 @@ class UserCustomViewSet(UserViewSet):
                 output_field=BooleanField()
             ),
             recipes_count=Count('recipes')
-        ).filter(is_subscribed=True)
+        ).filter(is_subscribe=True)
         recipes_limit = request.GET.get('recipes_limit', RECIPES_LIMIT)
         kwargs['recipes_limit'] = recipes_limit
         return self.list(request, *args, **kwargs)
