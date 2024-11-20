@@ -86,6 +86,8 @@ class UserCustomViewSet(UserViewSet):
             recipes_count=Count('recipes')
         ).filter(is_subscribe=True)
         recipes_limit = request.GET.get('recipes_limit', RECIPES_LIMIT)
+        if recipes_limit == "":
+            recipes_limit = RECIPES_LIMIT
         kwargs['recipes_limit'] = recipes_limit
         return self.list(request, *args, **kwargs)
 
@@ -245,10 +247,6 @@ class RecipeViewSet(viewsets.ModelViewSet):
             return Response(status=status.HTTP_400_BAD_REQUEST)
         obj.delete()
         return Response(status=status.HTTP_204_NO_CONTENT)
-
-    @action(detail=False, methods=['get'])
-    def download_shopping_cart(self, request, *args, **kwargs):
-        return DownloadShoppingCart.as_view()(request)
 
 
 class DownloadShoppingCart(APIView):

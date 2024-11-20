@@ -5,6 +5,7 @@ from rest_framework import routers
 from api.views import (
     IngredientViewSet,
     CustomTokenObtainPairView,
+    DownloadShoppingCart,
     RecipeViewSet,
     ResetTokenAPIView,
     TagViewSet,
@@ -19,6 +20,8 @@ router.register('recipes', RecipeViewSet, basename='recipes')
 router.register('ingredients', IngredientViewSet, basename='ingredients')
 
 urlpatterns = [
+    path('recipes/download_shopping_cart/',
+         DownloadShoppingCart.as_view(), name='download_shopping_cart'),
     path('auth/token/login/',
          CustomTokenObtainPairView.as_view(), name='jwt-create'),
     path('auth/token/logout/',
