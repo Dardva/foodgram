@@ -3,7 +3,7 @@ from django.core.validators import MinValueValidator
 from django.db import models
 
 from foodgram.settings import ALLOWED_HOSTS
-from .constants import MIN_VALUE
+from recipes.constants import MIN_VALUE
 
 User = get_user_model()
 
