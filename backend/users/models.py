@@ -21,10 +21,10 @@ class User(AbstractUser):
         'last_name',
     ]
 
-    def __str__(self):
-        return self.username
-
     class Meta:
         verbose_name = 'Пользователь'
         verbose_name_plural = 'Пользователи'
         ordering = ('username', 'id',)
+
+    def __str__(self):
+        return self.username

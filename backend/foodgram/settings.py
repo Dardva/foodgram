@@ -135,8 +135,8 @@ REST_FRAMEWORK = {
 DJOSER = {
     'SERIALIZERS': {
         'user_registration': 'api.serializers.UserRegisterSerializer',
-        'user': 'api.serializers.UserSerializer',
-        'current_user': 'api.serializers.UserSerializer'
+        'user': 'api.serializers.UserCustomSerializer',
+        'current_user': 'api.serializers.UserCustomSerializer'
     },
     'PERMISSIONS': {
         'user': ['rest_framework.permissions.AllowAny'],
@@ -148,5 +148,5 @@ DJOSER = {
 SIMPLE_JWT = {
     'ACCESS_TOKEN_LIFETIME': timedelta(days=1),
     'AUTH_HEADER_TYPES': ('Token',),
-    'TOKEN_OBTAIN_SERIALIZER': 'api.serializers.MyTokenObtainPairSerializer',
+    'TOKEN_OBTAIN_SERIALIZER': 'api.serializers.CustomTokenObtainPairSerializer',
 }

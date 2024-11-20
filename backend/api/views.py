@@ -1,8 +1,7 @@
 from io import BytesIO
-from urllib.parse import unquote
 
 from django.contrib.auth import get_user_model
-from django.db.models import Case, When, IntegerField
+from django.db.models import BooleanField, Case, Count, F, Sum, When
 from django.http import HttpResponse
 from django_filters.rest_framework.backends import DjangoFilterBackend
 from djoser.views import UserViewSet
@@ -19,15 +18,16 @@ from rest_framework_simplejwt.token_blacklist.models import (
 from rest_framework_simplejwt.views import TokenObtainPairView
 from rest_framework.views import APIView
 
-from api.constants import FONT_SIZE, POSITION
-from api.filters import RecipeFilter
+from api.constants import FONT_SIZE, POSITION, RECIPES_LIMIT
+from api.filters import RecipeFilter, IngredientFilter
 from api.pagination import CustomPageNumberPagination
 from api.permissions import AutorOrReadOnly
 from api.serializers import (
     AvatarSerializer,
     IngredientSerializer,
-    MyTokenObtainPairSerializer,
+    CustomTokenObtainPairSerializer,
     RecipeGetSerializer,
+    RecipeCreateUpdateSerializer,
     RecipeSerializer,
     SubscribeSerializer,
     TagSerializer,
@@ -60,28 +60,32 @@ class UserCustomViewSet(UserViewSet):
     )
     def avatar(self, request, *args, **kwargs):
         user = self.get_instance()
-        if request.method == "PUT":
+        if request.method == 'PUT':
             serializer = self.get_serializer(user, data=request.data)
             serializer.is_valid(raise_exception=True)
             serializer.save()
             return Response(serializer.data, status=status.HTTP_200_OK)
 
-        elif request.method == "DELETE":
+        elif request.method == 'DELETE':
             user.avatar.delete()
-            return Response(status=204)
+            return Response(status=status.HTTP_204_NO_CONTENT)
 
     @action(
         detail=False,
         methods=['get'],
         serializer_class=SubscribeSerializer,
-        pagination_class=CustomPageNumberPagination,
-        queryset=Subscribe.objects.all()
+        pagination_class=CustomPageNumberPagination
     )
     def subscriptions(self, request, *args, **kwargs):
-        subscriptions = self.queryset.filter(user=request.user)
-        self.queryset = User.objects.filter(
-            id__in=subscriptions.values_list('subscribe_id', flat=True))
-        recipes_limit = request.GET.get('recipes_limit', 3)
+        self.queryset = User.objects.annotate(
+            is_subscribe=Case(
+                When(subscribed__user=request.user, then=True),
+                default=False,
+                output_field=BooleanField()
+            ),
+            recipes_count=Count('recipes')
+        ).filter(is_subscribed=True)
+        recipes_limit = request.GET.get('recipes_limit', RECIPES_LIMIT)
         kwargs['recipes_limit'] = recipes_limit
         return self.list(request, *args, **kwargs)
 
@@ -92,9 +96,9 @@ class UserCustomViewSet(UserViewSet):
     )
     def subscribe(self, request, pk=None, *args, **kwargs):
 
-        if request.method == "POST":
+        if request.method == 'POST':
             user = request.user
-            recipes_limit = request.GET.get('recipes_limit', 3)
+            recipes_limit = request.GET.get('recipes_limit', RECIPES_LIMIT)
             kwargs['recipes_limit'] = recipes_limit
             try:
                 sub = self.get_object()
@@ -102,11 +106,6 @@ class UserCustomViewSet(UserViewSet):
                 return Response(
                     {'error': 'User not found'},
                     status=status.HTTP_404_NOT_FOUND
-                )
-            if user == sub:
-                return Response(
-                    {'error': 'You cannot subscribe to yourself'},
-                    status=status.HTTP_400_BAD_REQUEST
                 )
             try:
                 subscription = Subscribe.objects.get(user=user, subscribe=sub)
@@ -117,7 +116,7 @@ class UserCustomViewSet(UserViewSet):
                 Subscribe.objects.create(user_id=user.id, subscribe_id=sub.id)
             serializer = self.serializer_class(sub, context=kwargs)
             return Response(serializer.data, status=status.HTTP_201_CREATED)
-        elif request.method == "DELETE":
+        elif request.method == 'DELETE':
             user = request.user
             try:
                 sub = self.get_object()
@@ -146,51 +145,42 @@ class ResetTokenAPIView(APIView):
     def post(self, request: Request) -> Response:
         tokens = OutstandingToken.objects.filter(user_id=request.user.id)
         for token in tokens:
-            t, _ = BlacklistedToken.objects.get_or_create(token=token)
+            BlacklistedToken.objects.get_or_create(token=token)
 
         return Response(status=status.HTTP_204_NO_CONTENT)
 
 
-class MyTokenObtainPairView(TokenObtainPairView):
-    serializer_class = MyTokenObtainPairSerializer
+class CustomTokenObtainPairView(TokenObtainPairView):
+    serializer_class = CustomTokenObtainPairSerializer
 
 
 class TagViewSet(viewsets.ReadOnlyModelViewSet):
     queryset = Tag.objects.all()
     serializer_class = TagSerializer
-    search_fields = ['^name__icontains']
     permission_classes = (permissions.AllowAny,)
 
 
 class IngredientViewSet(viewsets.ReadOnlyModelViewSet):
     queryset = Ingredient.objects.all()
     serializer_class = IngredientSerializer
-    search_fields = ['^name', ]
+    filterset_class = IngredientFilter
+    filter_backends = [DjangoFilterBackend]
     permission_classes = (permissions.AllowAny,)
-
-    def get_queryset(self):
-        queryset = super().get_queryset()
-        search_term = self.request.query_params.get('name')
-        if search_term:
-            decoded_search_term = unquote(search_term)
-            queryset = queryset.annotate(
-                starts_with=Case(
-                    When(name__istartswith=decoded_search_term, then=1),
-                    default=0,
-                    output_field=IntegerField()
-                )
-            ).filter(starts_with=1).order_by('-starts_with', 'name')
-        return queryset
 
 
 class RecipeViewSet(viewsets.ModelViewSet):
-    queryset = Recipe.objects.all()
-    serializer_class = RecipeSerializer
+    queryset = Recipe.objects.all().select_related(
+        'autor').prefetch_related('ingredients', 'tags')
     permission_classes = (AutorOrReadOnly,)
     pagination_class = CustomPageNumberPagination
     search_fields = ['name', 'text']
     filterset_class = RecipeFilter
     filter_backends = [DjangoFilterBackend, filters.SearchFilter]
+
+    def get_serializer_class(self):
+        if self.request.method == 'GET':
+            return RecipeSerializer
+        return RecipeCreateUpdateSerializer
 
     def perform_create(self, serializer):
         serializer.save(author=self.request.user)
@@ -215,10 +205,10 @@ class RecipeViewSet(viewsets.ModelViewSet):
     )
     def shopping_cart(self, request, pk=None):
         model_class = ShoppingCart
-        if request.method == "POST":
+        if request.method == 'POST':
             return self.add_custom(request, model_class)
 
-        elif request.method == "DELETE":
+        if request.method == 'DELETE':
             return self.delete_custom(request, model_class)
 
     @action(
@@ -228,9 +218,9 @@ class RecipeViewSet(viewsets.ModelViewSet):
     )
     def favorite(self, request, pk=None):
         model_class = Favorite
-        if request.method == "POST":
+        if request.method == 'POST':
             return self.add_custom(request, model_class)
-        elif request.method == "DELETE":
+        if request.method == 'DELETE':
             return self.delete_custom(request, model_class)
 
     def add_custom(self, request, model_class, *args, **kwargs):
@@ -264,44 +254,45 @@ class RecipeViewSet(viewsets.ModelViewSet):
 class DownloadShoppingCart(APIView):
 
     def get(self, request):
-        buffer = BytesIO()
-        card = ShoppingCart.objects.filter(
-            user=self.request.user
+        ingredients = ShoppingCart.objects.select_related(
+            'recipe', 'recipe__recipe_ingredients'
         ).prefetch_related(
             'recipe__recipe_ingredients__ingredient'
-        )
-        ingredients = {}
-        for cart in card:
-            recipe = cart.recipe
-            for ri in recipe.recipe_ingredients.all():
-                ingredient = ri.ingredient
-                if ingredient.name in ingredients:
-                    ingredients[ingredient.name]['amount'] += ri.amount
-                else:
-                    ingredients[ingredient.name] = {
-                        'amount': ri.amount,
-                        'measurement_unit': ingredient.measurement_unit
-                    }
-        pdfmetrics.registerFont(TTFont('DejaVuSans', 'DejaVuSans.ttf'))
-        p = canvas.Canvas(buffer)
-        position = POSITION
-        p.setFont('DejaVuSans', FONT_SIZE)
-        p.drawString(POSITION[0], POSITION[1], 'Список покупок:')
-        position = (POSITION[0], POSITION[1] - FONT_SIZE)
+        ).filter(
+            user=self.request.user
+        ).annotate(
+            amount=Sum('recipe__recipe_ingredients__amount')
+        ).values(
+            name=F('recipe__recipe_ingredients__ingredient__name'),
+            unit=F('recipe__recipe_ingredients__ingredient__measurement_unit'),
+            amount=F('amount')
+        ).order_by('name')
 
-        for ingredient, data in ingredients.items():
-            p.drawString(
-                position[0], position[1],
-                f'{ingredient} ({data["measurement_unit"]}) — {data["amount"]}'
-            )
-            position = (position[0], position[1] - FONT_SIZE)
-        p.showPage()
-        p.save()
-        buffer.seek(0)
-
+        buffer = self.get_file(ingredients)
         response = HttpResponse(
             buffer.getvalue(), content_type='application/pdf')
         response['Content-Disposition'] = (
             'attachment;'
             'filename="shopping_cart.pdf"')
         return response
+
+    def get_file(self, ingredients):
+        buffer = BytesIO()
+        pdfmetrics.registerFont(TTFont('DejaVuSans', 'DejaVuSans.ttf'))
+        p = canvas.Canvas(buffer)
+        left, top = POSITION
+        p.setFont('DejaVuSans', FONT_SIZE)
+        p.drawString(left, top, 'Список покупок:')
+        top -= FONT_SIZE
+
+        for ingredient in ingredients:
+            name, unit, amount = ingredient.values()
+            p.drawString(
+                left, top,
+                f'{name} ({unit}) — {amount}'
+            )
+            top -= FONT_SIZE
+        p.showPage()
+        p.save()
+        buffer.seek(0)
+        return buffer
