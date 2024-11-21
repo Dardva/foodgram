@@ -1,15 +1,21 @@
-from io import BytesIO
 import os
+from io import BytesIO
 
 from django.contrib.auth import get_user_model
-from django.db.models import BooleanField, Case, Count, F, Sum, When
+from django.db.models import (
+    BooleanField, Case, Count, F, Sum, When
+)
 from django.http import HttpResponse
 from django_filters.rest_framework.backends import DjangoFilterBackend
 from djoser.views import UserViewSet
+
 from reportlab.pdfbase import pdfmetrics
 from reportlab.pdfbase.ttfonts import TTFont
 from reportlab.pdfgen import canvas
-from rest_framework import filters, status, permissions, viewsets
+
+from rest_framework import (
+    filters, status, permissions, viewsets
+)
 from rest_framework.decorators import action
 from rest_framework.request import Request
 from rest_framework.response import Response
@@ -19,20 +25,19 @@ from rest_framework_simplejwt.token_blacklist.models import (
 from rest_framework_simplejwt.views import TokenObtainPairView
 from rest_framework.views import APIView
 
-from api.constants import FONT_SIZE, POSITION, RECIPES_LIMIT
-from api.filters import RecipeFilter, IngredientFilter
+from api.constants import (
+    FONT_SIZE, POSITION, RECIPES_LIMIT
+)
+from api.filters import (
+    RecipeFilter, IngredientFilter
+)
 from api.pagination import CustomPageNumberPagination
 from api.permissions import AutorOrReadOnly
 from api.serializers import (
-    AvatarSerializer,
-    IngredientSerializer,
-    CustomTokenObtainPairSerializer,
-    RecipeGetSerializer,
-    RecipeCreateUpdateSerializer,
-    RecipeSerializer,
-    SubscribeSerializer,
-    TagSerializer,
-    SubscribeCreateSerializer
+    AvatarSerializer, IngredientSerializer,
+    CustomTokenObtainPairSerializer, RecipeGetSerializer,
+    RecipeCreateUpdateSerializer, RecipeSerializer,
+    SubscribeSerializer, TagSerializer, SubscribeCreateSerializer
 )
 from recipes.models import (
     Favorite, Ingredient, Recipe, ShoppingCart, Subscribe, Tag
@@ -119,7 +124,9 @@ class UserCustomViewSet(UserViewSet):
                     status=status.HTTP_404_NOT_FOUND
                 )
             create_serializer = self.get_serializer(
-                data={'user': request.user.id, 'subscribe': self.get_object().id})
+                data={
+                    'user': request.user.id,
+                    'subscribe': self.get_object().id})
             create_serializer.is_valid(raise_exception=True)
             create_serializer.save(user=user)
             serializer = SubscribeSerializer(sub, context=kwargs)
