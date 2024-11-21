@@ -39,18 +39,19 @@ class UnidecodeCharFilter(filters.CharFilter):
 
 
 class IngredientFilter(filters.FilterSet):
-    name_startswith = UnidecodeCharFilter(
+    name = UnidecodeCharFilter(
         field_name='name', lookup_expr='istartswith')
     name_contains = UnidecodeCharFilter(
         field_name='name', lookup_expr='icontains')
 
     class Meta:
         model = Ingredient
-        fields = ['name']
+        fields = ['name', 'name_contains']
 
     def filter_queryset(self, queryset):
-        search_term = self.form.cleaned_data.get('name_startswith')
+        search_term = self.form.cleaned_data.get('name')
         if search_term:
+            search_term = search_term.casefold()
             queryset = queryset.annotate(
                 starts_with=Case(
                     When(name__istartswith=search_term, then=1),
@@ -58,6 +59,8 @@ class IngredientFilter(filters.FilterSet):
                     output_field=IntegerField()
                 )
             ).order_by('-starts_with', 'name')
-        return queryset.filter(
-            Q(name__istartswith=search_term) | Q(name__icontains=search_term)
-        )
+            return queryset.filter(
+                Q(name__istartswith=search_term) | Q(
+                    name__icontains=search_term)
+            )
+        return queryset

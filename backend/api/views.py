@@ -1,4 +1,5 @@
 from io import BytesIO
+import os
 
 from django.contrib.auth import get_user_model
 from django.db.models import BooleanField, Case, Count, F, Sum, When
@@ -31,6 +32,7 @@ from api.serializers import (
     RecipeSerializer,
     SubscribeSerializer,
     TagSerializer,
+    SubscribeCreateSerializer
 )
 from recipes.models import (
     Favorite, Ingredient, Recipe, ShoppingCart, Subscribe, Tag
@@ -49,7 +51,10 @@ class UserCustomViewSet(UserViewSet):
 
     def get_serializer_context(self):
         context = super().get_serializer_context()
-        context.update(self.kwargs)
+        if self.action == 'subscriptions':
+            context['recipes_limit'] = self.request.GET.get(
+                'recipes_limit', RECIPES_LIMIT)
+
         return context
 
     @action(
@@ -85,38 +90,39 @@ class UserCustomViewSet(UserViewSet):
             ),
             recipes_count=Count('recipes')
         ).filter(is_subscribe=True)
-        recipes_limit = request.GET.get('recipes_limit', RECIPES_LIMIT)
-        if recipes_limit == "":
-            recipes_limit = RECIPES_LIMIT
-        kwargs['recipes_limit'] = recipes_limit
+
         return self.list(request, *args, **kwargs)
 
     @action(
         detail=True,
         methods=['post', 'delete'],
-        serializer_class=SubscribeSerializer
+        serializer_class=SubscribeCreateSerializer
     )
     def subscribe(self, request, pk=None, *args, **kwargs):
 
         if request.method == 'POST':
             user = request.user
-            recipes_limit = request.GET.get('recipes_limit', RECIPES_LIMIT)
+            try:
+                recipes_limit = int(request.GET.get(
+                    'recipes_limit', RECIPES_LIMIT))
+            except ValueError:
+                raise ValueError(
+                    f'{self.request}, Invalid recipes_limit value')
             kwargs['recipes_limit'] = recipes_limit
             try:
-                sub = self.get_object()
+                sub = self.get_queryset().annotate(
+                    recipes_count=Count('recipes')
+                ).get(id=self.get_object().id)
             except User.DoesNotExist:
                 return Response(
                     {'error': 'User not found'},
                     status=status.HTTP_404_NOT_FOUND
                 )
-            try:
-                subscription = Subscribe.objects.get(user=user, subscribe=sub)
-                return Response(
-                    {'error': 'You have already subscribed to this author'},
-                    status=status.HTTP_400_BAD_REQUEST)
-            except Subscribe.DoesNotExist:
-                Subscribe.objects.create(user_id=user.id, subscribe_id=sub.id)
-            serializer = self.serializer_class(sub, context=kwargs)
+            create_serializer = self.get_serializer(
+                data={'user': request.user.id, 'subscribe': self.get_object().id})
+            create_serializer.is_valid(raise_exception=True)
+            create_serializer.save(user=user)
+            serializer = SubscribeSerializer(sub, context=kwargs)
             return Response(serializer.data, status=status.HTTP_201_CREATED)
         elif request.method == 'DELETE':
             user = request.user
@@ -189,7 +195,7 @@ class RecipeViewSet(viewsets.ModelViewSet):
 
     def get_permissions(self):
         if self.action in (
-            'shopping_cart', 'favorite', 'download_shopping_cart'
+            'shopping_cart', 'favorite'
         ):
             self.permission_classes = (permissions.IsAuthenticated,)
         return super().get_permissions()
@@ -258,12 +264,14 @@ class DownloadShoppingCart(APIView):
             'recipe__recipe_ingredients__ingredient'
         ).filter(
             user=self.request.user
-        ).annotate(
-            amount=Sum('recipe__recipe_ingredients__amount')
         ).values(
             name=F('recipe__recipe_ingredients__ingredient__name'),
             unit=F('recipe__recipe_ingredients__ingredient__measurement_unit'),
-            amount=F('amount')
+            amount=F('recipe__recipe_ingredients__amount')
+        ).annotate(
+            total_amount=Sum('amount')
+        ).values(
+            'name', 'unit', 'total_amount'
         ).order_by('name')
 
         buffer = self.get_file(ingredients)
@@ -276,7 +284,9 @@ class DownloadShoppingCart(APIView):
 
     def get_file(self, ingredients):
         buffer = BytesIO()
-        pdfmetrics.registerFont(TTFont('DejaVuSans', 'DejaVuSans.ttf'))
+        font_path = os.path.join(os.path.dirname(
+            __file__), '../ttf/DejaVuSans.ttf')
+        pdfmetrics.registerFont(TTFont('DejaVuSans', font_path))
         p = canvas.Canvas(buffer)
         left, top = POSITION
         p.setFont('DejaVuSans', FONT_SIZE)
@@ -284,7 +294,9 @@ class DownloadShoppingCart(APIView):
         top -= FONT_SIZE
 
         for ingredient in ingredients:
-            name, unit, amount = ingredient.values()
+            name = ingredient['name']
+            unit = ingredient['unit']
+            amount = ingredient['total_amount']
             p.drawString(
                 left, top,
                 f'{name} ({unit}) — {amount}'
