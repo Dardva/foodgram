@@ -89,7 +89,7 @@ class UserCustomViewSet(UserViewSet):
     def subscriptions(self, request, *args, **kwargs):
         self.queryset = User.objects.annotate(
             is_subscribe=Case(
-                When(subscribed__user=request.user, then=True),
+                When(subscribe__user=request.user, then=True),
                 default=False,
                 output_field=BooleanField()
             ),
