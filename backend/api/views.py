@@ -274,11 +274,10 @@ class DownloadShoppingCart(APIView):
         ).values(
             name=F('recipe__recipe_ingredients__ingredient__name'),
             unit=F('recipe__recipe_ingredients__ingredient__measurement_unit'),
-            amount=F('recipe__recipe_ingredients__amount')
         ).annotate(
-            total_amount=Sum('amount')
+            amount=Sum('recipe__recipe_ingredients__amount')
         ).values(
-            'name', 'unit', 'total_amount'
+            'name', 'unit', 'amount'
         ).order_by('name')
 
         buffer = self.get_file(ingredients)
@@ -303,7 +302,7 @@ class DownloadShoppingCart(APIView):
         for ingredient in ingredients:
             name = ingredient['name']
             unit = ingredient['unit']
-            amount = ingredient['total_amount']
+            amount = ingredient['amount']
             p.drawString(
                 left, top,
                 f'{name} ({unit}) — {amount}'
