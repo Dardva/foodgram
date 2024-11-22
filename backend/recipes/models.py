@@ -1,17 +1,26 @@
 from django.contrib.auth import get_user_model
-from django.core.validators import MinValueValidator
+from django.core.validators import MinValueValidator, RegexValidator
 from django.db import models
 
 from foodgram.settings import ALLOWED_HOSTS
-from recipes.constants import MIN_VALUE
+from recipes.constants import (
+    MIN_VALUE, TAG_LENGTH, MAX_LENGTH, MEASUREMENT_UNIT_LENGTH
+)
+
 
 User = get_user_model()
 
 
 class Tag(models.Model):
     """Модель тега."""
-    name = models.CharField('Название', max_length=200, unique=True)
-    slug = models.SlugField('Слаг', max_length=200, unique=True)
+    name = models.CharField('Название', max_length=TAG_LENGTH, unique=True)
+    slug = models.SlugField(
+        'Слаг',
+        max_length=TAG_LENGTH,
+        unique=True,
+        validators=[
+            RegexValidator(r'^[-a-zA-Z0-9_]+$')
+        ])
 
     class Meta:
         verbose_name = 'Тег'
@@ -24,8 +33,9 @@ class Tag(models.Model):
 
 class Ingredient(models.Model):
     """Модель ингредиента."""
-    name = models.CharField('Название', max_length=128, unique=True)
-    measurement_unit = models.CharField('Единица измерения', max_length=64)
+    name = models.CharField('Название', max_length=MAX_LENGTH, unique=True)
+    measurement_unit = models.CharField(
+        'Единица измерения', max_length=MEASUREMENT_UNIT_LENGTH)
 
     class Meta:
         verbose_name = 'Ингредиент'
@@ -69,7 +79,7 @@ class Recipe(models.Model):
         verbose_name='Автор',
     )
     name = models.CharField(
-        'Название рецепта', max_length=256)
+        'Название рецепта', max_length=MAX_LENGTH)
     image = models.ImageField(
         'Изображение',
         upload_to='recipes/images/')

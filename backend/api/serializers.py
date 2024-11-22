@@ -66,12 +66,10 @@ class UserCustomSerializer(UserSerializer):
         )
 
     def get_is_subscribed(self, obj):
-        request = self.context.get('request', None)
-        user = request.user
-        try:
-            return user.subscribed.filter(subscribe=obj).exists()
-        except Exception:
+        user = self.context['request'].user
+        if not user.is_authenticated:
             return False
+        return user.subscribed.filter(subscribe=obj).exists()
 
 
 class RecipeIngredientSerializer(serializers.ModelSerializer):
@@ -197,34 +195,27 @@ class RecipeCreateUpdateSerializer(RecipeSerializer):
         return representation
 
     def create_tags(self, tags, recipe):
-        for tag in tags:
-            try:
-                recipe.tags.add(tag)
-            except Tag.DoesNotExist:
-                raise serializers.ValidationError(
-                    f'Tag with ID {tag} does not exist.')
+        try:
+            recipe.tags.add(*tags)
+        except Tag.DoesNotExist:
+            raise serializers.ValidationError(
+                'Tag does not exist.')
 
     def create_ingredients(self, ingredients, recipe):
-        current_ingredients = recipe.recipe_ingredients.all()
-        for current_ingredient in current_ingredients.exclude(
-            id__in=[i['id'].id for i in ingredients]
-        ):
-            current_ingredient.delete()
+        recipe.recipe_ingredients.all().delete()
+        ingredients_to_create = []
         for ingredient in ingredients:
             try:
-                RecipeIngredient.objects.filter(
-                    recipe=recipe,
-                    ingredient_id=ingredient['id'].id
-                ).delete()
-                RecipeIngredient.objects.create(
+                ingredients_to_create.append(RecipeIngredient(
                     recipe=recipe,
                     ingredient_id=ingredient['id'].id,
                     amount=ingredient['amount']
-                )
+                ))
             except Ingredient.DoesNotExist:
                 raise serializers.ValidationError(
                     f'Ingredient with ID {ingredient["id"]}'
                     'does not exist.')
+        RecipeIngredient.objects.bulk_create(ingredients_to_create)
 
     def create(self, validated_data):
         ingredients = validated_data.pop('recipe_ingredients')
