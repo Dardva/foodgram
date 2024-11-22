@@ -203,15 +203,13 @@ class RecipeCreateUpdateSerializer(RecipeSerializer):
 
     def create_ingredients(self, ingredients, recipe):
         current_ingredients = recipe.recipe_ingredients.all()
-        ingredients_to_update = []
         ingredients_to_create = []
         for ingredient in ingredients:
             try:
                 existing_ingredient = current_ingredients.get(
                     ingredient_id=ingredient['id'].id)
                 existing_ingredient.amount = ingredient['amount']
-                ingredients_to_update.append(existing_ingredient)
-                current_ingredients.remove(existing_ingredient)
+                ingredients_to_create.append(existing_ingredient)
             except RecipeIngredient.DoesNotExist:
                 ingredients_to_create.append(RecipeIngredient(
                     recipe=recipe,
@@ -222,7 +220,6 @@ class RecipeCreateUpdateSerializer(RecipeSerializer):
                 raise serializers.ValidationError(
                     f'Ingredient with ID {ingredient["id"]} does not exist.')
         current_ingredients.delete()
-        RecipeIngredient.objects.bulk_update(ingredients_to_update, ['amount'])
         RecipeIngredient.objects.bulk_create(ingredients_to_create)
 
     def create(self, validated_data):
