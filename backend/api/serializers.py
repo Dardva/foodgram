@@ -76,7 +76,7 @@ class RecipeIngredientSerializer(serializers.ModelSerializer):
     """Сериализатор ингредиентов рецепта."""
 
     id = serializers.PrimaryKeyRelatedField(
-        queryset=Ingredient.objects.all(),
+        source='ingredient.id', queryset=Ingredient.objects.all()
     )
     name = serializers.CharField(source='ingredient.name', read_only=True)
     measurement_unit = serializers.CharField(
@@ -167,8 +167,7 @@ class RecipeCreateUpdateSerializer(RecipeSerializer):
             raise serializers.ValidationError({
                 'ingredients': 'Ingredients are required.'
             })
-
-        ingredient_ids = [ingredient['id'].id
+        ingredient_ids = [ingredient['ingredient']['id'].id
                           for ingredient in data['recipe_ingredients']]
         if len(ingredient_ids) != len(set(ingredient_ids)):
             raise serializers.ValidationError({
@@ -207,13 +206,13 @@ class RecipeCreateUpdateSerializer(RecipeSerializer):
         for ingredient in ingredients:
             try:
                 existing_ingredient = current_ingredients.get(
-                    ingredient_id=ingredient['id'].id)
+                    ingredient_id=ingredient['ingredient']['id'].id)
                 existing_ingredient.amount = ingredient['amount']
                 ingredients_to_create.append(existing_ingredient)
             except RecipeIngredient.DoesNotExist:
                 ingredients_to_create.append(RecipeIngredient(
                     recipe=recipe,
-                    ingredient_id=ingredient['id'].id,
+                    ingredient_id=ingredient['ingredient']['id'].id,
                     amount=ingredient['amount']
                 ))
             except Ingredient.DoesNotExist:
